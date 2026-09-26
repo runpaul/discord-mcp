@@ -1,5 +1,6 @@
 package dev.saseq.services;
 
+import dev.saseq.guards.UntrustedContent;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -178,7 +179,7 @@ public class UserService {
      * @param around  Optional message ID to fetch messages around this message.
      * @return A formatted string containing the retrieved private messages.
      */
-    @Tool(name = "read_private_messages", description = "Read private message history from a specific user, optionally paginated with before/after/around")
+    @Tool(name = "read_private_messages", description = "Read private message history from a specific user, optionally paginated with before/after/around" + UntrustedContent.DESCRIPTION_SUFFIX)
     public String readPrivateMessages(@ToolParam(description = "Discord user ID") String userId,
                                       @ToolParam(description = "Number of messages to retrieve (1-100)", required = false) String count,
                                       @ToolParam(description = "Message ID to fetch messages before this message", required = false) String before,
@@ -264,7 +265,7 @@ public class UserService {
                 .map(m -> {
                     String authorName = m.getAuthor().getName();
                     String timestamp = m.getTimeCreated().toString();
-                    String content = m.getContentDisplay();
+                    String content = UntrustedContent.wrap(m.getContentDisplay());
                     String msgId = m.getId();
 
                     StringBuilder sb = new StringBuilder();
