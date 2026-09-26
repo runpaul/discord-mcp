@@ -205,7 +205,10 @@ public class EventQueryService {
         List<String> lines = new ArrayList<>();
 
         // Total member count
-        lines.add("Members: " + guild.getMemberCount());
+        long online = guild.getMembers().stream()
+                .filter(m -> m.getOnlineStatus() != net.dv8tion.jda.api.OnlineStatus.OFFLINE)
+                .count();
+        lines.add("Members: " + guild.getMemberCount() + " (online: " + online + ")");
 
         // Voice occupancy
         List<String> voiceLines = new ArrayList<>();
