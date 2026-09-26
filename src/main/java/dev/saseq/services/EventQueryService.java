@@ -242,34 +242,12 @@ public class EventQueryService {
         }
 
         // Event counts
-        String now = Instant.now().toString();
         String oneHourAgo = Instant.now().minus(1, ChronoUnit.HOURS).toString();
         String oneDayAgo = Instant.now().minus(1, ChronoUnit.DAYS).toString();
 
         try (Connection conn = eventStore.openConnection()) {
-            // Events in last hour
-            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM events WHERE ts > ?")) {
-                ps.setString(1, oneHourAgo);
-                ResultSet rs = ps.executeQuery();
-                long lastHourCount = 0;
-                if (rs.next()) {
-                    lastHourCount = rs.getLong(1);
-                }
-                rs.close();
-                lines.add("Events last 1h: " + lastHourCount);
-            }
-
-            // Events in last day
-            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM events WHERE ts > ?")) {
-                ps.setString(1, oneDayAgo);
-                ResultSet rs = ps.executeQuery();
-                long lastDayCount = 0;
-                if (rs.next()) {
-                    lastDayCount = rs.getLong(1);
-                }
-                rs.close();
-                lines.add("Events last 24h: " + lastDayCount);
-            }
+            lines.add("Events last 1h: " + countsByType(conn, oneHourAgo));
+            lines.add("Events last 24h: " + countsByType(conn, oneDayAgo));
 
             // Pending approvals
             try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM pending_actions WHERE status = ?")) {
@@ -287,5 +265,23 @@ public class EventQueryService {
         }
 
         return String.join("\n", lines);
+    }
+
+    /** "total N (type=count, ...)" for events newer than {@code sinceTs}. */
+    private static String countsByType(Connection conn, String sinceTs) throws SQLException {
+        String sql = "SELECT type, COUNT(*) FROM events WHERE ts > ? GROUP BY type ORDER BY COUNT(*) DESC";
+        List<String> parts = new ArrayList<>();
+        long total = 0;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sinceTs);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long n = rs.getLong(2);
+                    total += n;
+                    parts.add(rs.getString(1) + "=" + n);
+                }
+            }
+        }
+        return parts.isEmpty() ? "0" : total + " (" + String.join(", ", parts) + ")";
     }
 }
