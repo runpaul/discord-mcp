@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
+import dev.saseq.guards.TargetGuard;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,12 +21,14 @@ import java.util.stream.Collectors;
 public class RoleService {
 
     private final JDA jda;
+    private final TargetGuard targetGuard;
 
     @Value("${DISCORD_GUILD_ID:}")
     private String defaultGuildId;
 
-    public RoleService(JDA jda) {
+    public RoleService(JDA jda, TargetGuard targetGuard) {
         this.jda = jda;
+        this.targetGuard = targetGuard;
     }
 
     private String resolveGuildId(String guildId) {
@@ -333,6 +336,9 @@ public class RoleService {
             throw new IllegalArgumentException("Cannot assign the @everyone role - all members have it by default");
         }
 
+        targetGuard.checkMember(guild, member);
+        targetGuard.checkRole(guild, role);
+
         try {
             guild.addRoleToMember(member, role).complete();
             return String.format(
@@ -394,6 +400,9 @@ public class RoleService {
         if (role.isPublicRole()) {
             throw new IllegalArgumentException("Cannot remove the @everyone role - all members have it by default");
         }
+
+        targetGuard.checkMember(guild, member);
+        targetGuard.checkRole(guild, role);
 
         try {
             guild.removeRoleFromMember(member, role).complete();

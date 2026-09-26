@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
+import dev.saseq.guards.TargetGuard;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,12 +22,14 @@ import org.springframework.stereotype.Service;
 public class VoiceChannelService {
 
     private final JDA jda;
+    private final TargetGuard targetGuard;
 
     @Value("${DISCORD_GUILD_ID:}")
     private String defaultGuildId;
 
-    public VoiceChannelService(JDA jda) {
+    public VoiceChannelService(JDA jda, TargetGuard targetGuard) {
         this.jda = jda;
+        this.targetGuard = targetGuard;
     }
 
     private String resolveGuildId(String guildId) {
@@ -155,6 +158,7 @@ public class VoiceChannelService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         GuildVoiceState voiceState = member.getVoiceState();
         if (voiceState == null || !voiceState.inAudioChannel()) {
@@ -181,6 +185,7 @@ public class VoiceChannelService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         GuildVoiceState voiceState = member.getVoiceState();
         if (voiceState == null || !voiceState.inAudioChannel()) {
@@ -204,6 +209,7 @@ public class VoiceChannelService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         GuildVoiceState voiceState = member.getVoiceState();
         if (voiceState == null || !voiceState.inAudioChannel()) {
