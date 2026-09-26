@@ -22,6 +22,50 @@ designed to integrate Discord bots with MCP-compatible applications such as Clau
 Discord by managing channels, sending messages, and retrieving server information. Ideal for building powerful Discord automation and AI-driven workflows.
 
 
+## 🔒 Guardrails (fork)
+
+This fork ([runpaul/discord-mcp](https://github.com/runpaul/discord-mcp)) adds safety layers for running the server behind an autonomous agent.
+
+### Environment Variables
+
+| Name | Default | Purpose |
+|------|---------|---------|
+| `DISCORD_TOKEN` | (required) | Bot token for Discord authentication |
+| `DISCORD_GUILD_ID` | empty | Default guild ID for tools that accept `guildId` parameter |
+| `DISCORD_GUILD_ALLOWLIST` | empty (= only DISCORD_GUILD_ID) | Comma-separated guild IDs the tools may touch |
+| `DESTRUCTIVE_MODE` | `dry_run` | Control destructive tool behavior: `allow`, `dry_run`, `deny`, or `approval` (approval posts a request to Discord and waits for human reaction) |
+| `MCP_BEARER_TOKEN` | (required in http profile) | Clients must send `Authorization: Bearer <token>` to `/mcp`; `/actuator/health` stays open |
+| `ENABLE_DM_TOOLS` | `true` | Set to `false` to remove send/edit/delete/read private message tools |
+| `LOGGING_FILE_NAME` | `./target/logs/discord-mcp-server.log` | Log file path (compose sets `/data/logs/...`) |
+
+### What the Wrapper Does
+
+Every tool call passes through one `GuardedToolCallback`:
+
+- **Guild allowlist check**: Tools are restricted to guilds in `DISCORD_GUILD_ALLOWLIST`.
+- **Owner/self/role-hierarchy protection**: Member-targeting tools (`kick_member`, `ban_member`, `timeout_member`, `set_nickname`, `assign_role`, `remove_role`, `move_member`, `disconnect_member`, `modify_voice_state`) run hierarchy checks before dry-run.
+- **Reason defaults**: Empty `reason` fields become `"via discord-mcp (agent)"`.
+- **Audit logging**: One log line per mutating call (tool, guildId, targetId, reason, mode, outcome); never logs message bodies.
+- **Destructive hints**: Destructive tools get a `"[DESTRUCTIVE]"` description prefix and MCP `destructiveHint`. Read-only tools get `readOnlyHint`.
+
+### Untrusted Content
+
+User-supplied message bodies from `read_messages` and `read_private_messages` are wrapped in `<untrusted_user_content>…</untrusted_user_content>` with embedded tags escaped.
+
+### Destructive Tool List (16)
+
+- `kick_member`, `ban_member`, `timeout_member`, `remove_role`, `disconnect_member`, `modify_voice_state`
+- `delete_category`, `delete_channel`, `delete_channel_permission_overwrite`, `delete_emoji`, `delete_guild_scheduled_event`, `delete_invite`, `delete_message`, `delete_private_message`, `delete_role`, `delete_webhook`
+
+Classification lives in `src/main/java/dev/saseq/guards/ToolClassification.java`; a test fails if a new upstream tool is unclassified.
+
+### Deployment Notes
+
+- Compose binds `127.0.0.1:8085` only (never `0.0.0.0`).
+- Runs as host UID/GID.
+- Mounts `~/discord-data` at `/data` for logs and state.
+
+
 ## 🔬 Installation
 
 ### ► 🐳 Docker Installation (Recommended)
