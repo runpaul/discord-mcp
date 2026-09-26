@@ -74,7 +74,12 @@ public class TargetGuard {
         try {
             member = guild.retrieveMemberById(userId).complete();
         } catch (ErrorResponseException e) {
-            throw new IllegalArgumentException("User not found");
+            if (!"ban_member".equals(toolName)) {
+                throw new IllegalArgumentException("User not found");
+            }
+            // Banning a non-member is allowed; only the owner/self rules can apply by ID.
+            checkNotOwnerOrSelf(guild, userId);
+            return;
         }
         checkMember(guild, member);
 
@@ -97,5 +102,14 @@ public class TargetGuard {
             return defaultGuildId;
         }
         return guildId;
+    }
+
+    private void checkNotOwnerOrSelf(Guild guild, String userId) {
+        if (guild.getOwnerId().equals(userId)) {
+            throw new IllegalArgumentException("Refused: target is the server owner");
+        }
+        if (guild.getSelfMember().getId().equals(userId)) {
+            throw new IllegalArgumentException("Refused: target is the bot itself");
+        }
     }
 }
