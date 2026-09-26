@@ -39,6 +39,7 @@ public final class ToolClassification {
 			"get_forum_channel_info",
 			"get_guild_scheduled_event_users",
 			"get_invite_details",
+			"get_pending_actions",
 			"get_server_info",
 			"get_user_id_by_name",
 			"find_category",
