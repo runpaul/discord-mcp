@@ -24,7 +24,13 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.ChunkingFilter;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
+import net.dv8tion.jda.api.utils.cache.CacheFlag;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.McpToolUtils;
@@ -38,6 +44,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
+@EnableScheduling
 public class DiscordMcpConfig {
     private static final Logger log = LoggerFactory.getLogger(DiscordMcpConfig.class);
 
@@ -131,14 +138,40 @@ public class DiscordMcpConfig {
     }
 
     @Bean
-    public JDA jda(@Value("${DISCORD_TOKEN:}") String token) throws InterruptedException {
+    public JDA jda(@Value("${DISCORD_TOKEN:}") String token,
+                   @Value("${ENABLE_PRESENCE:true}") boolean enablePresence) throws InterruptedException {
         if (token == null || token.isBlank()) {
             log.error("The environment variable DISCORD_TOKEN is not set. Please set it to run the application properly.");
             throw new IllegalStateException("DISCORD_TOKEN is not set");
         }
-        return JDABuilder.createDefault(token)
-                .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.SCHEDULED_EVENTS)
-                .build()
-                .awaitReady();
+        JDABuilder builder = JDABuilder.createDefault(token)
+                .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_VOICE_STATES,
+                        GatewayIntent.SCHEDULED_EVENTS, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT,
+                        GatewayIntent.GUILD_MESSAGE_REACTIONS)
+                .enableCache(CacheFlag.VOICE_STATE)
+                // Small server: cache every member so name lookups and owner checks work offline too.
+                .setMemberCachePolicy(MemberCachePolicy.ALL)
+                .setChunkingFilter(ChunkingFilter.ALL);
+        if (enablePresence) {
+            builder.enableIntents(GatewayIntent.GUILD_PRESENCES)
+                    .enableCache(CacheFlag.ACTIVITY, CacheFlag.ONLINE_STATUS);
+        }
+        try {
+            return builder.build().awaitReady();
+        } catch (IllegalStateException e) {
+            log.error("Discord refused the gateway connection ({}). If this mentions disallowed intents, enable "
+                    + "Presence, Server Members and Message Content intents in the Developer Portal "
+                    + "or set ENABLE_PRESENCE=false.", e.getMessage());
+            throw e;
+        }
+    }
+
+    /** Attach gateway listeners after all beans exist (listeners depend on beans that depend on JDA). */
+    @Bean
+    public SmartInitializingSingleton discordListenerRegistrar(JDA jda, List<ListenerAdapter> listeners) {
+        return () -> {
+            jda.addEventListener(listeners.toArray());
+            log.info("Registered {} Discord event listeners", listeners.size());
+        };
     }
 }
