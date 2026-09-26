@@ -17,7 +17,7 @@ class ApprovalReactionListenerTest {
     @Test
     void guildReaction_delegatesToApprovalService() {
         ApprovalService approvalService = mock(ApprovalService.class);
-        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService);
+        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService, Runnable::run);
 
         MessageReactionAddEvent event = mock(MessageReactionAddEvent.class);
         when(event.isFromGuild()).thenReturn(true);
@@ -38,7 +38,7 @@ class ApprovalReactionListenerTest {
     @Test
     void nonGuildReaction_ignored() {
         ApprovalService approvalService = mock(ApprovalService.class);
-        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService);
+        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService, Runnable::run);
 
         MessageReactionAddEvent event = mock(MessageReactionAddEvent.class);
         when(event.isFromGuild()).thenReturn(false);
@@ -53,7 +53,7 @@ class ApprovalReactionListenerTest {
     @Test
     void approvalServiceThrows_doesNotPropagate() {
         ApprovalService approvalService = mock(ApprovalService.class);
-        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService);
+        ApprovalReactionListener listener = new ApprovalReactionListener(approvalService, Runnable::run);
 
         MessageReactionAddEvent event = mock(MessageReactionAddEvent.class);
         when(event.isFromGuild()).thenReturn(true);

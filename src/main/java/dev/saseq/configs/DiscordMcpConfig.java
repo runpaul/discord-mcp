@@ -1,5 +1,6 @@
 package dev.saseq.configs;
 
+import dev.saseq.guards.ApprovalService;
 import dev.saseq.guards.DestructiveMode;
 import dev.saseq.guards.GuardedToolCallback;
 import dev.saseq.guards.GuildGuard;
@@ -20,6 +21,9 @@ import dev.saseq.services.InviteService;
 import dev.saseq.services.ChannelPermissionService;
 import dev.saseq.services.EmojiService;
 import dev.saseq.services.ForumService;
+import dev.saseq.services.EventQueryService;
+import dev.saseq.services.PendingActionsService;
+import dev.saseq.services.PresenceService;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import net.dv8tion.jda.api.JDA;
@@ -64,6 +68,10 @@ public class DiscordMcpConfig {
                                              ChannelPermissionService channelPermissionService,
                                              EmojiService emojiService,
                                              ForumService forumService,
+                                             PresenceService presenceService,
+                                             EventQueryService eventQueryService,
+                                             PendingActionsService pendingActionsService,
+                                             ApprovalService approvalService,
                                              GuildGuard guildGuard,
                                              TargetGuard targetGuard,
                                              @Value("${DESTRUCTIVE_MODE:dry_run}") String destructiveModeValue,
@@ -84,13 +92,18 @@ public class DiscordMcpConfig {
                 inviteService,
                 channelPermissionService,
                 emojiService,
-                forumService
+                forumService,
+                presenceService,
+                eventQueryService,
+                pendingActionsService
         ).build().getToolCallbacks();
 
         List<ToolCallback> filtered = filterDmTools(Arrays.asList(rawCallbacks), enableDmTools);
         log.info("Registering {} MCP tools (dmToolsEnabled={}, destructiveMode={})", filtered.size(), enableDmTools, destructiveMode);
+        // Approved actions execute through the raw (unwrapped) callback after guards are re-checked.
+        filtered.forEach(callback -> approvalService.registerDelegate(callback.getToolDefinition().name(), callback));
         return filtered.stream()
-                .<ToolCallback>map(callback -> new GuardedToolCallback(callback, guildGuard, targetGuard, destructiveMode))
+                .<ToolCallback>map(callback -> new GuardedToolCallback(callback, guildGuard, targetGuard, destructiveMode, approvalService))
                 .toList();
     }
 
