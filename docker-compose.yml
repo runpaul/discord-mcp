@@ -15,6 +15,10 @@ services:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
       LOGGING_FILE_NAME: ${LOGGING_FILE_NAME:-/data/logs/discord-mcp-server.log}
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
+      DESTRUCTIVE_MODE: ${DESTRUCTIVE_MODE:-dry_run}
+      DISCORD_GUILD_ALLOWLIST: ${DISCORD_GUILD_ALLOWLIST:-}
+      ENABLE_DM_TOOLS: ${ENABLE_DM_TOOLS:-true}
     labels:
       homepage.group: System
       homepage.name: Discord MCP
