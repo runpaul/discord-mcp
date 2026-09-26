@@ -18,6 +18,8 @@ import dev.saseq.services.ForumService;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class DiscordMcpConfig {
+    private static final Logger log = LoggerFactory.getLogger(DiscordMcpConfig.class);
+
     @Bean
     public ToolCallbackProvider discordTools(DiscordService discordService,
                                              MessageService messageService,
@@ -63,9 +67,9 @@ public class DiscordMcpConfig {
 
     @Bean
     public JDA jda(@Value("${DISCORD_TOKEN:}") String token) throws InterruptedException {
-        if (token == null || token.isEmpty()) {
-            System.err.println("ERROR: The environment variable DISCORD_TOKEN is not set. Please set it to run the application properly.");
-            System.exit(1);
+        if (token == null || token.isBlank()) {
+            log.error("The environment variable DISCORD_TOKEN is not set. Please set it to run the application properly.");
+            throw new IllegalStateException("DISCORD_TOKEN is not set");
         }
         return JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.SCHEDULED_EVENTS)
