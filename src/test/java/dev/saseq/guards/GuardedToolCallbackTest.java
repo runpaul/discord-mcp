@@ -103,6 +103,22 @@ class GuardedToolCallbackTest {
     }
 
     @Test
+    void destructiveTool_approvalMode_withApprovalService_returnsPendingText_neverCallsDelegate() {
+        ToolCallback delegate = mockDelegate("delete_message", "Deletes a message", SCHEMA_WITH_TARGET_AND_REASON);
+        ApprovalService approvalService = mock(ApprovalService.class);
+        when(approvalService.requestApproval(eq("delete_message"), anyString(), anyString(), anyString()))
+                .thenReturn("PENDING_APPROVAL #1: waiting for a human. Do not retry.");
+        GuardedToolCallback guarded = new GuardedToolCallback(delegate, guildGuard, targetGuard, DestructiveMode.APPROVAL, approvalService);
+
+        String result = guarded.call("{\"guildId\":\"1000\",\"channelId\":\"5\",\"messageId\":\"9\"}");
+
+        assertEquals("PENDING_APPROVAL #1: waiting for a human. Do not retry.", result);
+        verify(delegate, never()).call(anyString());
+        verify(delegate, never()).call(anyString(), org.mockito.ArgumentMatchers.any());
+        verify(approvalService).registerDelegate(eq("delete_message"), org.mockito.ArgumentMatchers.same(delegate));
+    }
+
+    @Test
     void nonDestructiveTool_passesThrough() {
         ToolCallback delegate = mockDelegate("send_message", "Sends a message", SCHEMA_WITH_TARGET_AND_REASON);
         when(delegate.call(anyString())).thenReturn("sent");

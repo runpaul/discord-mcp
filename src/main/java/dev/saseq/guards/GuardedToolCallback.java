@@ -38,6 +38,7 @@ public class GuardedToolCallback implements ToolCallback {
 	private final GuildGuard guildGuard;
 	private final TargetGuard targetGuard;
 	private final DestructiveMode destructiveMode;
+	private final ApprovalService approvalService;
 
 	private final String toolName;
 	private final boolean destructive;
@@ -47,10 +48,16 @@ public class GuardedToolCallback implements ToolCallback {
 	private final boolean mutating;
 
 	public GuardedToolCallback(ToolCallback delegate, GuildGuard guildGuard, TargetGuard targetGuard, DestructiveMode destructiveMode) {
+		this(delegate, guildGuard, targetGuard, destructiveMode, null);
+	}
+
+	public GuardedToolCallback(ToolCallback delegate, GuildGuard guildGuard, TargetGuard targetGuard,
+								DestructiveMode destructiveMode, ApprovalService approvalService) {
 		this.delegate = delegate;
 		this.guildGuard = guildGuard;
 		this.targetGuard = targetGuard;
 		this.destructiveMode = destructiveMode;
+		this.approvalService = approvalService;
 
 		ToolDefinition definition = delegate.getToolDefinition();
 		this.toolName = definition.name();
@@ -67,6 +74,10 @@ public class GuardedToolCallback implements ToolCallback {
 				|| schemaProperties.containsKey("roleId")
 				|| schemaProperties.containsKey("messageId");
 		this.hasReasonProperty = schemaProperties.containsKey("reason");
+
+		if (this.approvalService != null) {
+			this.approvalService.registerDelegate(this.toolName, delegate);
+		}
 	}
 
 	@Override
@@ -110,7 +121,11 @@ public class GuardedToolCallback implements ToolCallback {
 
 			if (destructive) {
 				String result = applyDestructiveMode(effectiveInput, toolContext, targetId, reason);
-				outcome = destructiveMode == DestructiveMode.ALLOW ? "ok" : "dry_run";
+				outcome = switch (destructiveMode) {
+					case ALLOW -> "ok";
+					case APPROVAL -> "pending";
+					default -> "dry_run";
+				};
 				return result;
 			}
 
@@ -164,14 +179,23 @@ public class GuardedToolCallback implements ToolCallback {
 			case DRY_RUN -> "[DRY RUN] Would " + toolName + " on " + targetId
 					+ " (reason: " + (reason == null || reason.isBlank() ? "none" : reason) + ")";
 			case DENY -> throw new DeniedException("Destructive tool " + toolName + " is disabled (DESTRUCTIVE_MODE=deny)");
-			case APPROVAL -> handleApprovalMode();
+			case APPROVAL -> handleApprovalMode(effectiveInput, targetId, reason);
 		};
 	}
 
-	// Single, clearly-marked seam: Phase 3 replaces this method's body with the real
-	// approval workflow. For now every destructive call under APPROVAL mode is refused.
-	private String handleApprovalMode() {
-		throw new DeniedException("approval mode not implemented yet");
+	/**
+	 * Under DESTRUCTIVE_MODE=approval, parks the call for a human instead of refusing or
+	 * running it. Falls back to the pre-Phase-8 refusal when no {@link ApprovalService} was
+	 * wired in (e.g. older call sites still using the 4-arg constructor).
+	 */
+	private String handleApprovalMode(String effectiveInput, String targetId, String reason) {
+		if (approvalService == null) {
+			throw new DeniedException("approval mode not implemented yet");
+		}
+		Map<String, Object> args = parseArgs(effectiveInput);
+		args.remove("reason");
+		String summary = toolName + " on " + targetId + " " + JsonParser.toJson(args);
+		return approvalService.requestApproval(toolName, effectiveInput, summary, reason);
 	}
 
 	private void audit(String guildId, String targetId, String reason, String outcome) {

@@ -41,6 +41,7 @@ public final class ToolClassification {
 			"get_guild_scheduled_event_users",
 			"get_invite_details",
 			"get_member_activities",
+			"get_pending_actions",
 			"get_server_info",
 			"get_server_snapshot",
 			"get_user_id_by_name",
