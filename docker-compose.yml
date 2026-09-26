@@ -3,14 +3,23 @@ services:
     container_name: discord-mcp
     build:
       context: .
-    image: saseq/discord-mcp:latest
+    image: discord-mcp:local
     restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
+    volumes:
+      - ${HOME}/discord-data:/data
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-http}
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      LOGGING_FILE_NAME: ${LOGGING_FILE_NAME:-/data/logs/discord-mcp-server.log}
+    labels:
+      homepage.group: System
+      homepage.name: Discord MCP
+      homepage.icon: discord.png
+      homepage.description: MCP server + gateway listener for the Discord admin agent
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8085/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 30s
