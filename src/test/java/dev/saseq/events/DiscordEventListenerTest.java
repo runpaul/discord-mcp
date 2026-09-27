@@ -49,7 +49,11 @@ class DiscordEventListenerTest {
         when(author.getName()).thenReturn("alice");
         Message message = mock(Message.class);
         Mentions mentions = mock(Mentions.class);
-        when(mentions.isMentioned(org.mockito.ArgumentMatchers.any())).thenReturn(mentionsBot);
+        when(mentions.isMentioned(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.<Message.MentionType>any())).thenReturn(mentionsBot);
+        when(mentions.getRoles()).thenReturn(List.of());
+        net.dv8tion.jda.api.entities.SelfMember selfMember = mock(net.dv8tion.jda.api.entities.SelfMember.class);
+        when(selfMember.getRoles()).thenReturn(List.of());
+        when(guild.getSelfMember()).thenReturn(selfMember);
         when(message.getMentions()).thenReturn(mentions);
         when(message.getContentDisplay()).thenReturn(content);
         when(message.getAttachments()).thenReturn(List.of());

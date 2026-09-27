@@ -1,5 +1,7 @@
 package dev.saseq.events;
 
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Mentions;
 import dev.saseq.guards.GuildGuard;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.audit.AuditLogEntry;
@@ -132,7 +134,7 @@ public class DiscordEventListener extends ListenerAdapter {
             return;
         }
         User author = event.getAuthor();
-        boolean mentionsBot = event.getMessage().getMentions().isMentioned(event.getJDA().getSelfUser());
+        boolean mentionsBot = mentionsBot(event);
         if (author.isBot() && !mentionsBot) {
             return;
         }
@@ -283,5 +285,17 @@ public class DiscordEventListener extends ListenerAdapter {
             case STREAMING -> "STREAMING";
             default -> null;
         };
+    }
+
+    /** Direct @user mention of the bot, or a mention of the bot's own managed (integration) role. */
+    private static boolean mentionsBot(MessageReceivedEvent event) {
+        Mentions mentions = event.getMessage().getMentions();
+        if (mentions.isMentioned(event.getJDA().getSelfUser(), Message.MentionType.USER)) {
+            return true;
+        }
+        List<Role> botRoles = event.getGuild().getSelfMember().getRoles().stream()
+                .filter(Role::isManaged)
+                .toList();
+        return mentions.getRoles().stream().anyMatch(botRoles::contains);
     }
 }
