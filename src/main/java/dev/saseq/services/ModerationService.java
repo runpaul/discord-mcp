@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.UserSnowflake;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
+import dev.saseq.guards.TargetGuard;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,12 +22,14 @@ import java.util.stream.Collectors;
 public class ModerationService {
 
     private final JDA jda;
+    private final TargetGuard targetGuard;
 
     @Value("${DISCORD_GUILD_ID:}")
     private String defaultGuildId;
 
-    public ModerationService(JDA jda) {
+    public ModerationService(JDA jda, TargetGuard targetGuard) {
         this.jda = jda;
+        this.targetGuard = targetGuard;
     }
 
     private String resolveGuildId(String guildId) {
@@ -67,6 +70,7 @@ public class ModerationService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         try {
             guild.kick(member).reason(reason).complete();
@@ -98,6 +102,13 @@ public class ModerationService {
             if (deleteSeconds < 0 || deleteSeconds > 604800) {
                 throw new IllegalArgumentException("deleteMessageSeconds must be between 0 and 604800 (7 days)");
             }
+        }
+
+        try {
+            Member existingMember = guild.retrieveMemberById(userId).complete();
+            targetGuard.checkMember(guild, existingMember);
+        } catch (ErrorResponseException e) {
+            // Not a current member of the guild - hierarchy checks do not apply.
         }
 
         try {
@@ -143,6 +154,7 @@ public class ModerationService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         if (durationSeconds == null || durationSeconds.isEmpty()) {
             throw new IllegalArgumentException("durationSeconds cannot be null");
@@ -194,6 +206,7 @@ public class ModerationService {
 
         Guild guild = getGuild(guildId);
         Member member = retrieveMember(guild, userId);
+        targetGuard.checkMember(guild, member);
 
         String effectiveNick = (nick == null || nick.isEmpty()) ? null : nick;
 
